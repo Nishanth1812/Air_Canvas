@@ -8,7 +8,8 @@ Controls: 'q' to quit, 'c' to clear canvas
 
 import cv2
 import numpy as np
-import mediapipe as mp
+from mediapipe.tasks import python
+from mediapipe.tasks.python import vision
 
 from drawing_engine import draw_stroke, clear_canvas, initialize_canvas
 from tool_palette import render_palette, check_palette_selection
@@ -36,15 +37,17 @@ class ApplicationState:
 
 
 def initialize_mediapipe():
-    """Initialize MediaPipe Hands detector."""
-    mp_hands = mp.solutions.hands
-    hands = mp_hands.Hands(
-        max_num_hands=1,
-        min_detection_confidence=0.7,
+    """Initialize MediaPipe Hand Landmarker."""
+    base_options = python.BaseOptions(model_asset_path='hand_landmarker.task')
+    options = vision.HandLandmarkerOptions(
+        base_options=base_options,
+        num_hands=1,
+        min_hand_detection_confidence=0.7,
+        min_hand_presence_confidence=0.5,
         min_tracking_confidence=0.5
     )
-    mp_drawing = mp.solutions.drawing_utils
-    return mp_hands, hands, mp_drawing
+    detector = vision.HandLandmarker.create_from_options(options)
+    return detector
 
 
 def initialize_webcam(camera_index=0):
@@ -57,19 +60,25 @@ def initialize_webcam(camera_index=0):
     return cap
 
 
-def process_frame(frame, hands, mp_hands, state):
+def process_frame(frame, detector, state):
     """Process frame for hand detection and gesture recognition."""
     frame = cv2.flip(frame, 1)
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    results = hands.process(rgb_frame)
+    
+    # Convert to mediapipe Image
+    import mediapipe as mp
+    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb_frame)
+    
+    # Detect hands
+    detection_result = detector.detect(mp_image)
     
     landmarks = None
     gesture = None
     
-    if results.multi_hand_landmarks:
-        hand_landmarks = results.multi_hand_landmarks[0]
+    if detection_result.hand_landmarks:
+        hand_landmarks = detection_result.hand_landmarks[0]
         landmarks = detect_hand_landmarks(hand_landmarks, frame.shape)
-        gesture = interpret_gesture(landmarks, mp_hands)
+        gesture = interpret_gesture(landmarks)
         
         # TODO: Add gesture handling logic here
         # - Connect gestures to drawing actions
@@ -99,7 +108,7 @@ def main():
     """Main application entry point."""
     print("Air Canvas Studio - Starting...")
     
-    mp_hands, hands, mp_drawing = initialize_mediapipe()
+    detector = initialize_mediapipe()
     cap = initialize_webcam()
     state = ApplicationState()
     
@@ -110,7 +119,7 @@ def main():
         if not ret:
             continue
         
-        processed_frame, landmarks, gesture = process_frame(frame, hands, mp_hands, state)
+        processed_frame, landmarks, gesture = process_frame(frame, detector, state)
         output = render_output(processed_frame, state, landmarks, gesture)
         
         cv2.imshow(WINDOW_NAME, output)
@@ -123,7 +132,7 @@ def main():
     
     cap.release()
     cv2.destroyAllWindows()
-    hands.close()
+    detector.close()
 
 
 if __name__ == "__main__":

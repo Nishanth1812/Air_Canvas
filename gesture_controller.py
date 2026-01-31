@@ -21,15 +21,27 @@ def detect_hand_landmarks(hand_landmarks, frame_shape):
     
     Returns:
         dict with keys: 'raw', 'fingertips', 'palm_center'
-    
-    TODO: Convert normalized coords to pixels
-        - pixel_x = int(normalized_x * width)
-        - pixel_y = int(normalized_y * height)
-        - Extract fingertips using FINGERTIP_INDICES
     """
-    # YOUR CODE HERE
-    pass
-    return {"raw": [], "fingertips": {}, "palm_center": None}
+    height, width, _ = frame_shape
+    
+    # Convert normalized coords to pixels
+    raw_landmarks = []
+    for landmark in hand_landmarks:
+        pixel_x = int(landmark.x * width)
+        pixel_y = int(landmark.y * height)
+        raw_landmarks.append((pixel_x, pixel_y))
+    
+    # Extract fingertips
+    fingertips = {}
+    for finger_name, idx in FINGERTIP_INDICES.items():
+        fingertips[finger_name] = raw_landmarks[idx]
+    
+    # Calculate palm center (average of wrist and middle finger base)
+    wrist = raw_landmarks[0]
+    middle_base = raw_landmarks[9]
+    palm_center = ((wrist[0] + middle_base[0]) // 2, (wrist[1] + middle_base[1]) // 2)
+    
+    return {"raw": raw_landmarks, "fingertips": fingertips, "palm_center": palm_center}
 
 
 def is_finger_up(landmarks, finger_name):
@@ -42,14 +54,21 @@ def is_finger_up(landmarks, finger_name):
     
     Returns:
         True if finger is up, False if down
-    
-    TODO: Compare fingertip.y with PIP.y (tip above joint = finger up)
-        - Note: Y increases downward in image coordinates
-        - Thumb uses X comparison (extends sideways)
     """
-    # YOUR CODE HERE
-    pass
-    return False
+    raw = landmarks["raw"]
+    
+    tip_idx = FINGERTIP_INDICES[finger_name]
+    pip_idx = FINGER_PIP_INDICES[finger_name]
+    
+    tip = raw[tip_idx]
+    pip = raw[pip_idx]
+    
+    # For thumb, check horizontal extension
+    if finger_name == "thumb":
+        return abs(tip[0] - pip[0]) > 30
+    
+    # For other fingers, check if tip is above PIP (Y increases downward)
+    return tip[1] < pip[1] - 10
 
 
 def get_extended_fingers(landmarks):
@@ -58,38 +77,47 @@ def get_extended_fingers(landmarks):
     
     TODO: Check each finger with is_finger_up() and collect names
     """
-    # YOUR CODE HERE
-    pass
-    return []
+    extended = []
+    for finger in ["thumb", "index", "middle", "ring", "pinky"]:
+        if is_finger_up(landmarks, finger):
+            extended.append(finger)
+    return extended
 
 
-def interpret_gesture(landmarks, mp_hands):
+def interpret_gesture(landmarks):
     """
     Interpret hand pose as gesture command.
     
     Parameters:
         landmarks: Landmarks dict
-        mp_hands: MediaPipe Hands module
     
     Returns:
         Gesture string: 'draw', 'select', 'erase', 'stop', 'palm', or None
-    
-    TODO: Map finger combinations to gestures
-        - Index only -> 'draw'
-        - Index + Middle -> 'select'
-        - No fingers -> 'stop'
-        - All fingers -> 'palm'
     """
-    # YOUR CODE HERE
-    pass
+    if landmarks is None:
+        return None
+    
+    extended = get_extended_fingers(landmarks)
+    num_extended = len(extended)
+    
+    # Map finger combinations to gestures
+    if num_extended == 0:
+        return 'stop'
+    elif num_extended == 5:
+        return 'palm'
+    elif num_extended == 1 and 'index' in extended:
+        return 'draw'
+    elif num_extended == 2 and 'index' in extended and 'middle' in extended:
+        return 'select'
+    
     return None
 
 
 def get_index_finger_position(landmarks):
     """Get index fingertip position (x, y) or None."""
-    # YOUR CODE HERE
-    pass
-    return None
+    if landmarks is None or "fingertips" not in landmarks:
+        return None
+    return landmarks["fingertips"].get("index")
 
 
 def detect_pinch_gesture(landmarks, threshold=40):
@@ -98,9 +126,17 @@ def detect_pinch_gesture(landmarks, threshold=40):
     
     Returns:
         (is_pinching, pinch_midpoint) tuple
-    
-    TODO: Calculate distance between thumb and index tips
     """
-    # YOUR CODE HERE
-    pass
-    return (False, None)
+    if landmarks is None or "fingertips" not in landmarks:
+        return (False, None)
+    
+    thumb_tip = landmarks["fingertips"]["thumb"]
+    index_tip = landmarks["fingertips"]["index"]
+    
+    # Calculate distance
+    distance = np.sqrt((thumb_tip[0] - index_tip[0])**2 + (thumb_tip[1] - index_tip[1])**2)
+    
+    is_pinching = distance < threshold
+    midpoint = ((thumb_tip[0] + index_tip[0]) // 2, (thumb_tip[1] + index_tip[1]) // 2) if is_pinching else None
+    
+    return (is_pinching, midpoint)
