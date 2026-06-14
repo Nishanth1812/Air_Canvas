@@ -1,37 +1,4 @@
-Nishanth
-nishanth_1812
-Idle
 
-Ima — 02/09/2025 22:25
-Eda where is that link for a excel sheet or something about updates?
-Nishanth — 02/09/2025 22:26
-eda arent u in the s3 whatsapp group
-Ima — 02/09/2025 22:27
-Oh yes da got it
-Nishanth — 02/09/2025 22:27
-yea
-Ima — 17:41
-niga
-# Air Canvas Studio 🎨✋
-
-A **gesture-controlled drawing application** that lets you draw in the air using your hand movements. Built with **Python**, **OpenCV**, and **MediaPipe Hands**.
-
----
-
-README.md
-3 KB
-opencv-python
-mediapipe
-numpy
-requirements.txt
-1 KB
-﻿
-Ima
-ima_bleh
- 
- 
- 
-I was supposed to be you Barry
 # Air Canvas Studio 🎨✋
 
 A **gesture-controlled drawing application** that lets you draw in the air using your hand movements. Built with **Python**, **OpenCV**, and **MediaPipe Hands**.
